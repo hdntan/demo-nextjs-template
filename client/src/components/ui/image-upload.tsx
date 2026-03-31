@@ -5,18 +5,24 @@ import Image from 'next/image'
 import { uploadMedia } from '@/lib/api/services/media.service'
 import { Button } from '@/components/ui/button'
 
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const MAX_BYTES = 5 * 1024 * 1024 // 5 MB
+
 interface ImageUploadProps {
   value: string
   onChange: (url: string) => void
+  onUploadingChange?: (uploading: boolean) => void
 }
 
-export function ImageUpload({ value, onChange }: ImageUploadProps) {
+export function ImageUpload({ value, onChange, onUploadingChange }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-  const MAX_BYTES = 5 * 1024 * 1024 // 5 MB
+  function setUploading(uploading: boolean) {
+    setIsUploading(uploading)
+    onUploadingChange?.(uploading)
+  }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -33,7 +39,7 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
       return
     }
 
-    setIsUploading(true)
+    setUploading(true)
     setError(null)
     try {
       const { imageUrl } = await uploadMedia(file)
@@ -41,7 +47,7 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
-      setIsUploading(false)
+      setUploading(false)
       if (inputRef.current) inputRef.current.value = ''
     }
   }

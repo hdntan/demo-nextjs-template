@@ -30,8 +30,7 @@ export function useAuth() {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      // confirmPassword is validated client-side only; omit from wire payload
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, confirmPassword: _confirmPassword }),
     })
 
     if (!res.ok) {
