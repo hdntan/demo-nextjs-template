@@ -2,9 +2,12 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   images: {
-    // Add external image domains consumed by <Image> here, e.g.:
-    // { protocol: 'https', hostname: 'cdn.example.com' }
-    remotePatterns: [],
+    remotePatterns: [
+      // Local dev — Fastify server at port 4000
+      { protocol: 'http', hostname: 'localhost', port: '4000', pathname: '/static/**' },
+      // Production
+      { protocol: 'https', hostname: 'api.edu.duthanhduoc.com', pathname: '/static/**' },
+    ],
   },
 }
 
