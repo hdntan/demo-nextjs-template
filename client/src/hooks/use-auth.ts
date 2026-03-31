@@ -26,6 +26,24 @@ export function useAuth() {
     return data.user
   }
 
+  async function register(name: string, email: string, password: string, _confirmPassword: string): Promise<User> {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // confirmPassword is validated client-side only; omit from wire payload
+      body: JSON.stringify({ name, email, password }),
+    })
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Registration failed' }))
+      throw new Error(error.message ?? 'Registration failed')
+    }
+
+    const data = (await res.json()) as { user: User }
+    setUser(data.user)
+    return data.user
+  }
+
   async function logout(): Promise<void> {
     const res = await fetch('/api/auth/logout', { method: 'POST' })
     if (!res.ok) throw new Error('Logout failed')
@@ -37,6 +55,7 @@ export function useAuth() {
     isAuthenticated: user !== null,
     isHydrated,
     login,
+    register,
     logout,
   }
 }

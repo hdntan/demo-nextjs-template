@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useProduct } from '@/hooks/use-products'
+import { useAuth } from '@/hooks/use-auth'
+import { Button } from '@/components/ui/button'
 import type { Product } from '@/types/product'
 
 interface ProductDetailProps {
@@ -11,6 +13,7 @@ interface ProductDetailProps {
 
 export function ProductDetail({ initialData }: ProductDetailProps) {
   const { product } = useProduct(initialData.id, initialData)
+  const { isAuthenticated } = useAuth()
 
   if (!product) return null
 
@@ -52,6 +55,13 @@ export function ProductDetail({ initialData }: ProductDetailProps) {
           <p className="text-xs text-muted-foreground">
             Added {new Date(product.createdAt).toLocaleDateString('vi-VN')}
           </p>
+          {isAuthenticated && (
+            <Link href={`/${product.id}/edit`}>
+              <Button variant="outline" size="sm">
+                Edit Product
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </div>

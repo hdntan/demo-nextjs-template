@@ -4,6 +4,7 @@ import { getProduct } from '@/lib/api/services/product.service'
 import { ProductDetail } from './_components/product-detail'
 import { notFound } from 'next/navigation'
 import { ApiError } from '@/lib/net/net'
+import type { Product } from '@/types/product'
 
 interface DetailPageProps {
   params: Promise<{ slug: string }>
@@ -17,11 +18,13 @@ export default async function DetailPage({ params }: DetailPageProps) {
 
   const api = await createServerApiClient()
 
+  let product: Product
   try {
-    const product = await getProduct(api, id)
-    return <ProductDetail initialData={product} />
+    product = await getProduct(api, id)
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) notFound()
     throw err
   }
+
+  return <ProductDetail initialData={product} />
 }

@@ -38,8 +38,8 @@ async function handleRegister(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ message: 'Invalid request body' }, { status: 400 })
   }
 
-  if (!body.name || !body.email || !body.password || !body.confirmPassword) {
-    return NextResponse.json({ message: 'name, email, password, and confirmPassword are required' }, { status: 400 })
+  if (!body.name || !body.email || !body.password) {
+    return NextResponse.json({ message: 'name, email, and password are required' }, { status: 400 })
   }
 
   const res = await fetch(`${env.API_URL}/auth/register`, {
