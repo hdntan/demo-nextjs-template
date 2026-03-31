@@ -14,7 +14,9 @@ async function proxyRequest(request: NextRequest, context: RouteContext): Promis
   const cookieStore = await cookies()
   const token = cookieStore.get(ACCESS_TOKEN)?.value
 
-  if (!token) {
+  // Require auth for all non-GET mutations — public GET endpoints pass through without a token
+  const isWrite = request.method !== 'GET' && request.method !== 'HEAD'
+  if (isWrite && !token) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
   }
 
@@ -41,22 +43,22 @@ async function proxyRequest(request: NextRequest, context: RouteContext): Promis
   const { search } = new URL(request.url)
   const url = search ? `${targetUrl}${search}` : targetUrl
 
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-  }
+  const headers: Record<string, string> = {}
 
-  // Forward Content-Type only when present — don't assume JSON for every request
+  // Attach token when available (required for protected endpoints)
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  // Forward Content-Type only when present
   const contentType = request.headers.get('Content-Type')
   if (contentType) headers['Content-Type'] = contentType
 
-  const init: RequestInit = {
-    method: request.method,
-    headers,
-  }
+  const init: RequestInit = { method: request.method, headers }
 
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    const text = await request.text()
-    if (text) init.body = text
+  // Forward body as a stream to correctly handle both JSON and binary (multipart/form-data)
+  if (isWrite && request.body) {
+    init.body = request.body
+    // Required for streaming bodies in Node.js fetch
+    ;(init as RequestInit & { duplex: string }).duplex = 'half'
   }
 
   const res = await fetch(url, init).catch(() => null)
@@ -65,8 +67,17 @@ async function proxyRequest(request: NextRequest, context: RouteContext): Promis
     return NextResponse.json({ message: 'Service unavailable' }, { status: 503 })
   }
 
-  const data = await res.json().catch(() => null)
-  return NextResponse.json(data ?? {}, { status: res.status })
+  const resContentType = res.headers.get('Content-Type') ?? ''
+  if (resContentType.includes('application/json')) {
+    const data = await res.json().catch(() => null)
+    return NextResponse.json(data ?? {}, { status: res.status })
+  }
+
+  // Non-JSON response (binary, plain text, etc.) — stream body directly
+  return new NextResponse(res.body, {
+    status: res.status,
+    headers: resContentType ? { 'Content-Type': resContentType } : {},
+  })
 }
 
 export const GET = proxyRequest

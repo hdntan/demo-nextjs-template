@@ -1,45 +1,34 @@
+// This backend uses sliding sessions, not token rotation.
+// Kept for backwards compatibility — equivalent to POST /api/auth/slide-session.
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { env } from '@/config/env'
-import {
-  ACCESS_TOKEN,
-  REFRESH_TOKEN,
-  ACCESS_COOKIE_OPTIONS,
-  REFRESH_COOKIE_OPTIONS,
-} from '@/lib/auth/constants'
-import type { User } from '@/types/auth'
+import { ACCESS_TOKEN, ACCESS_COOKIE_OPTIONS } from '@/lib/auth/constants'
+
+interface BackendAuthRes {
+  data: { token: string; expiresAt: string; account: { id: number; name: string; email: string } }
+  message: string
+}
 
 export async function POST(): Promise<NextResponse> {
   const cookieStore = await cookies()
-  const refreshToken = cookieStore.get(REFRESH_TOKEN)?.value
+  const token = cookieStore.get(ACCESS_TOKEN)?.value
 
-  if (!refreshToken) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
-  }
+  if (!token) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
 
-  // TODO: Replace /auth/refresh with your actual backend endpoint path
-  const res = await fetch(`${env.API_URL}/auth/refresh`, {
+  const res = await fetch(`${env.API_URL}/auth/slide-session`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
   }).catch(() => null)
 
   if (!res || !res.ok) {
-    // Refresh token is invalid or expired — clear all auth cookies
-    cookieStore.delete(ACCESS_TOKEN)
-    cookieStore.delete(REFRESH_TOKEN)
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
   }
 
-  // TODO: Adjust field names to match your backend's response contract
-  const data = (await res.json()) as {
-    accessToken: string
-    refreshToken: string
-    user: User
-  }
-
-  cookieStore.set(ACCESS_TOKEN, data.accessToken, ACCESS_COOKIE_OPTIONS)
-  cookieStore.set(REFRESH_TOKEN, data.refreshToken, REFRESH_COOKIE_OPTIONS)
-
-  return NextResponse.json({ user: data.user })
+  const data = (await res.json()) as BackendAuthRes
+  cookieStore.set(ACCESS_TOKEN, data.data.token, ACCESS_COOKIE_OPTIONS)
+  return NextResponse.json({ success: true })
 }
