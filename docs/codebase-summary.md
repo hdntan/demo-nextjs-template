@@ -113,9 +113,9 @@ server/src/
 
 ```
 client/src/
-├── app/                 (654 LOC)   - App Router pages & layouts
-│   ├── (auth)/         - Login page with layout
-│   ├── (main)/         - Public pages (home, product detail)
+├── app/                 (800+ LOC)  - App Router pages & layouts
+│   ├── (auth)/         - Login & register pages with layout
+│   ├── (main)/         - Public & protected pages (home, detail, create, edit, profile)
 │   └── api/            - BFF route handlers (auth, proxy)
 ├── components/          (784 LOC)   - React components
 │   ├── ui/             - Base UI primitives (button, modal, etc.)
@@ -137,14 +137,19 @@ client/src/
 
 **app/**
 - `(auth)/login/page.tsx` - Login form with React Hook Form
+- `(auth)/register/page.tsx` - User registration form (POST /auth/register)
 - `(main)/page.tsx` - Product listing with SWR data fetching
-- `(main)/[slug]/page.tsx` - Product detail page
+- `(main)/[slug]/page.tsx` - Product detail page with edit button (authenticated users)
+- `(main)/[slug]/edit/page.tsx` - Edit product form (PUT/DELETE /products/:id)
+- `(main)/products/new/page.tsx` - Create product form with image upload (POST /products, POST /media/upload)
+- `(main)/profile/page.tsx` - User profile management (GET/PUT /account/me)
 - `api/proxy/[...path]/route.ts` - Backend proxy (SSRF-safe)
 - `api/auth/*` - Auth endpoint handlers (login, logout, refresh)
 
 **components/ui/**
 - Button, Modal, Input, Card, Badge, Icon components
-- 8 reusable primitives with TailwindCSS styling
+- ImageUpload component with file validation & preview
+- 9 reusable primitives with TailwindCSS styling
 
 **components/item/**
 - `CourseCard.tsx`, `ArticleCard.tsx`, `EventCard.tsx`, `ItemCard.tsx`
@@ -187,7 +192,11 @@ client/src/
 |-------|------|---------|
 | / | Public | Product listing (home) |
 | /login | Public | Login form |
+| /register | Public | User registration form |
 | /[slug] | Public | Product detail page |
+| /[slug]/edit | Protected | Edit product form |
+| /products/new | Protected | Create product form |
+| /profile | Protected | View & edit account name |
 | /api/auth/login | Private | BFF auth endpoint |
 | /api/auth/logout | Private | BFF logout endpoint |
 | /api/auth/me | Private | BFF user profile |

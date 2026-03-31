@@ -24,8 +24,10 @@ The system follows a **fullstack monorepo pattern** with clear separation of con
 │                                                              │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │ React Components (UI Layer)                         │   │
-│  │ - LoginForm, ProductList, ProductDetail             │   │
-│  │ - Header, Footer, Navigation                        │   │
+│  │ - Auth: LoginForm, RegisterForm, ProfilePage        │   │
+│  │ - Products: List, Detail, Create, Edit, Delete      │   │
+│  │ - Layout: Header, Footer, Navigation                │   │
+│  │ - UI: ImageUpload, AuthNav (auth-aware nav)         │   │
 │  └────────────────────┬────────────────────────────────┘   │
 │                       │                                      │
 │  ┌────────────────────▼────────────────────────────────┐   │
@@ -182,7 +184,7 @@ User Input: Register Form
         └─ Render protected content
 ```
 
-### Data Fetching Flow: Product Listing
+### Data Fetching Flow: Product Listing (Server Component)
 
 ```
 Server Component (RSC): page.tsx
@@ -215,6 +217,58 @@ Server Component (RSC): page.tsx
         │       └─ If changed: Update UI
         │
         └─ User sees products instantly (SSR) + updates via SWR
+```
+
+### Product Management Flow: Create Product with Image Upload
+
+```
+User Action: Click "Create Product" button → /products/new
+    │
+    ├─ ProductForm with ImageUpload component
+    │
+    ├─ User selects image & fills form
+    │   ├─ ImageUpload validates file size/type
+    │   ├─ Shows preview
+    │   └─ React Hook Form collects data
+    │
+    ├─ Form submission
+    │   ├─ POST /api/proxy/media/upload (image)
+    │   │   ├─ BFF forwards to Fastify /media/upload
+    │   │   ├─ Fastify validates file (10MB limit)
+    │   │   ├─ Saves to disk & generates ID
+    │   │   └─ Returns imageId
+    │   │
+    │   ├─ POST /api/proxy/products (create product)
+    │   │   ├─ Includes imageId from previous upload
+    │   │   ├─ BFF includes Authorization header
+    │   │   ├─ Fastify validates via require-authed-hook
+    │   │   ├─ ProductController.create() saves to database
+    │   │   └─ Returns created product
+    │   │
+    │   └─ Show success toast & redirect to /products/{id}
+```
+
+### User Management Flow: Edit Profile
+
+```
+User Action: Visit /profile
+    │
+    ├─ Server Component fetches account data
+    │   ├─ GET /api/server/account/me (using session)
+    │   ├─ Fastify validates auth via require-authed-hook
+    │   └─ Returns Account object
+    │
+    ├─ Client Component: ProfileForm
+    │   ├─ Pre-fills with current name
+    │   ├─ User edits name field
+    │   └─ Form submission
+    │
+    ├─ PUT /api/proxy/account/me
+    │   ├─ BFF includes Authorization header
+    │   ├─ Fastify validates & updates via AccountController
+    │   └─ Returns updated Account
+    │
+    └─ Show success message & update Zustand store
 ```
 
 ### Protected Action Flow: Create Product
@@ -320,23 +374,27 @@ User Action: Click "Create Product" button
 
 ```typescript
 // Public routes (no auth required)
-GET /products
-GET /products/:id
-GET /static/:id (image serving)
+GET /products                      // List all products
+GET /products/:id                  // Product detail page
+GET /static/:id                    // Image serving
+POST /auth/register                // User registration
 
 // Protected routes (require valid session)
-POST /auth/logout
-POST /auth/slide-session
-GET  /account/me
-PUT  /account/me
-POST /products (create)
-PUT  /products/:id (update own)
-DELETE /products/:id (delete own)
-POST /media/upload
+POST /auth/login                   // User login
+POST /auth/logout                  // User logout
+POST /auth/slide-session           // Token refresh (proactive)
+GET  /account/me                   // Get current user profile
+PUT  /account/me                   // Update user profile (name)
+POST /products                     // Create product
+PUT  /products/:id                 // Update product (owner only)
+DELETE /products/:id               // Delete product (owner only)
+POST /media/upload                 // Upload image
 
 // Authorization checks (by business logic)
 PUT  /products/:id → Only owner can update (check accountId)
 DELETE /products/:id → Only owner can delete (check accountId)
+GET  /account/me → Returns authenticated user only
+PUT  /account/me → Updates authenticated user only
 ```
 
 ---
