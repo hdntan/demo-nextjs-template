@@ -6,4 +6,11 @@ export const KEYS = {
     list: '/items',
     detail: (id: string) => `/items/${id}`,
   },
+  products: {
+    list: '/products',
+    detail: (id: number) => `/products/${id}`,
+  },
+  account: {
+    me: '/account/me',
+  },
 } as const

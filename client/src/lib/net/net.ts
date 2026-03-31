@@ -18,32 +18,12 @@ export class ApiError extends Error {
   }
 }
 
-// ─── Client-side refresh singleton ───────────────────────────────────────────
-// Module-level promise prevents concurrent 401s from triggering multiple
-// refresh calls (token reuse errors on rotation-enabled backends).
-// Only used in browser context (guarded by typeof window check below).
-
-let refreshPromise: Promise<boolean> | null = null
-
-function getOrStartRefresh(): Promise<boolean> {
-  if (!refreshPromise) {
-    refreshPromise = fetch('/api/auth/refresh', { method: 'POST' })
-      .then((res) => res.ok)
-      .catch(() => false)
-      .finally(() => {
-        refreshPromise = null
-      })
-  }
-  return refreshPromise
-}
-
 // ─── Core fetch ──────────────────────────────────────────────────────────────
 
-async function netFetchInternal<T>(
+export async function netFetch<T>(
   url: string,
-  init: RequestInit,
-  options: NetOptions,
-  isRetry: boolean
+  init: RequestInit = {},
+  options: NetOptions = {}
 ): Promise<T> {
   const headers = new Headers(init.headers)
 
@@ -61,18 +41,8 @@ async function netFetchInternal<T>(
   const response = await fetch(url, { ...init, headers })
 
   if (!response.ok) {
-    // Client-side 401 intercept: attempt refresh then retry once.
-    // Guard: only in browser (server-side refresh is handled in createServerApiClient).
-    if (response.status === 401 && !isRetry && typeof window !== 'undefined') {
-      const refreshed = await getOrStartRefresh()
-
-      if (refreshed) {
-        // Retry original request — new cookies are auto-sent by the browser
-        return netFetchInternal<T>(url, init, options, true)
-      }
-
-      // Both tokens exhausted — redirect to login (skipped in bypass/guest mode)
-      // TODO: RE-ENABLE AUTH — Remove AUTH_BYPASS check to restore redirect on session expiry
+    // On 401 in browser: session expired — redirect to login
+    if (response.status === 401 && typeof window !== 'undefined') {
       if (!AUTH_BYPASS) window.location.href = '/login'
       throw new ApiError(401, 'Session expired', headers.get(CORRELATION_ID_HEADER) ?? undefined)
     }
@@ -88,12 +58,4 @@ async function netFetchInternal<T>(
   }
 
   return response.json() as Promise<T>
-}
-
-export async function netFetch<T>(
-  url: string,
-  init: RequestInit = {},
-  options: NetOptions = {}
-): Promise<T> {
-  return netFetchInternal<T>(url, init, options, false)
 }
